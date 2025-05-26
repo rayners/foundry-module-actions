@@ -1,0 +1,25 @@
+# Example workflow for Journeys & Jamborees
+# Place this in .github/workflows/release.yml
+
+name: Release Module
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Release Journeys & Jamborees
+        uses: rayners/foundry-module-actions@v1
+        with:
+          node-version: '18'
+          build-command: 'npm run build'
+          working-directory: 'dist'
+          module-files: 'module.js module.json styles/ templates/ languages/'

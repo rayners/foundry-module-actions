@@ -1,0 +1,97 @@
+name: 'Foundry VTT Module Release'
+description: 'Build and release Foundry VTT modules with automatic zip creation and artifact upload'
+author: 'David Raynes'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '18'
+  
+  build-command:
+    description: 'Build command to run'
+    required: false
+    default: 'npm run build'
+  
+  working-directory:
+    description: 'Directory containing built files after build'
+    required: false
+    default: 'dist'
+  
+  module-files:
+    description: 'Files and directories to include in module zip (space-separated, relative to working-directory)'
+    required: true
+    default: 'module.json styles/ templates/ languages/'
+  
+  zip-name:
+    description: 'Name of the zip file to create'
+    required: false
+    default: 'module.zip'
+
+outputs:
+  version:
+    description: 'The version number extracted from the git tag'
+    value: ${{ steps.get_version.outputs.version-without-v }}
+  
+  zip-path:
+    description: 'Path to the created module zip file'
+    value: ${{ steps.create_zip.outputs.zip-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Extract version from tag
+      id: get_version
+      uses: battila7/get-version-action@v2
+
+    - name: Build module
+      shell: bash
+      env:
+        MODULE_VERSION: ${{ steps.get_version.outputs.version-without-v }}
+        GH_PROJECT: ${{ github.repository }}
+        GH_TAG: ${{ github.event.release.tag_name }}
+      run: ${{ inputs.build-command }}
+
+    - name: Create module zip
+      id: create_zip
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        # Start with base module files
+        FILES="${{ inputs.module-files }}"
+        
+        # Always add README.md and LICENSE if they exist
+        if [[ -f "README.md" ]]; then
+          FILES="$FILES README.md"
+        fi
+        
+        if [[ -f "LICENSE" ]]; then
+          FILES="$FILES LICENSE"
+        fi
+        
+        echo "Creating zip with files: $FILES"
+        zip -r "${{ inputs.zip-name }}" $FILES
+        
+        echo "zip-path=${{ inputs.working-directory }}/${{ inputs.zip-name }}" >> $GITHUB_OUTPUT
+
+    - name: Update release with artifacts
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        name: ${{ github.event.release.name }}
+        draft: ${{ github.event.release.unpublished }}
+        prerelease: ${{ github.event.release.prerelease }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: "${{ inputs.working-directory }}/module.json, ${{ steps.create_zip.outputs.zip-path }}"
+        tag: ${{ github.event.release.tag_name }}
+        body: ${{ github.event.release.body }}
