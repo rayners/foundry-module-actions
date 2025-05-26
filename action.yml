@@ -91,7 +91,7 @@ runs:
         name: ${{ github.event.release.name }}
         draft: ${{ github.event.release.unpublished }}
         prerelease: ${{ github.event.release.prerelease }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ github.token }}
         artifacts: "${{ inputs.working-directory }}/module.json, ${{ steps.create_zip.outputs.zip-path }}"
         tag: ${{ github.event.release.tag_name }}
         body: ${{ github.event.release.body }}
