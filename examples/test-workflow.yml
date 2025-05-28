@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run tests
-        uses: rayners/foundry-module-actions/test-action@v1
+        uses: rayners/foundry-module-actions/test@v1
         with:
           node-version: ${{ matrix.node-version }}
           coverage: true
@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Test Node.js ${{ matrix.node-version }} compatibility
-        uses: rayners/foundry-module-actions/test-action@v1
+        uses: rayners/foundry-module-actions/test@v1
         with:
           node-version: ${{ matrix.node-version }}
         continue-on-error: true

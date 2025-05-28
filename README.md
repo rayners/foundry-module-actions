@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Release module
-        uses: rayners/foundry-module-actions@v1
+        uses: rayners/foundry-module-actions/release@v1
         with:
           module-files: 'module.json styles/ templates/ languages/'
 ```
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Release module
-        uses: rayners/foundry-module-actions@v1
+        uses: rayners/foundry-module-actions/release@v1
         with:
           node-version: '20'
           build-command: 'npm run build:prod'
@@ -204,7 +204,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run tests
-        uses: rayners/foundry-module-actions/test-action@v1
+        uses: rayners/foundry-module-actions/test@v1
 ```
 
 ### Advanced Usage
@@ -226,7 +226,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run comprehensive tests
-        uses: rayners/foundry-module-actions/test-action@v1
+        uses: rayners/foundry-module-actions/test@v1
         with:
           node-version: '20'
           test-command: 'npm run test:ci'
