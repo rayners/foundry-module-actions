@@ -1,0 +1,136 @@
+name: 'Foundry VTT Module Testing'
+description: 'Run tests, linting, and build validation for Foundry VTT modules'
+author: 'David Raynes'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '18'
+  
+  test-command:
+    description: 'Test command to run'
+    required: false
+    default: 'npm run test:run'
+  
+  lint-command:
+    description: 'Lint command to run'
+    required: false
+    default: 'npm run lint'
+  
+  build-command:
+    description: 'Build command to run'
+    required: false
+    default: 'npm run build'
+  
+  format-check-command:
+    description: 'Format check command to run'
+    required: false
+    default: 'npm run format:check'
+  
+  coverage:
+    description: 'Generate test coverage report'
+    required: false
+    default: 'false'
+  
+  coverage-command:
+    description: 'Coverage command to run'
+    required: false
+    default: 'npm run test:coverage'
+
+outputs:
+  test-result:
+    description: 'Result of test execution (success/failure)'
+    value: ${{ steps.test.outcome }}
+  
+  lint-result:
+    description: 'Result of lint execution (success/failure)'
+    value: ${{ steps.lint.outcome }}
+  
+  build-result:
+    description: 'Result of build execution (success/failure)'
+    value: ${{ steps.build.outcome }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Check formatting
+      id: format
+      shell: bash
+      run: ${{ inputs.format-check-command }}
+      continue-on-error: true
+
+    - name: Run linting
+      id: lint
+      shell: bash
+      run: ${{ inputs.lint-command }}
+      continue-on-error: true
+
+    - name: Run tests
+      id: test
+      shell: bash
+      run: |
+        if [[ "${{ inputs.coverage }}" == "true" ]]; then
+          ${{ inputs.coverage-command }}
+        else
+          ${{ inputs.test-command }}
+        fi
+      continue-on-error: true
+
+    - name: Build module
+      id: build
+      shell: bash
+      run: ${{ inputs.build-command }}
+      continue-on-error: true
+
+    - name: Report results
+      shell: bash
+      run: |
+        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ steps.format.outcome }}" == "success" ]]; then
+          echo "| Formatting | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Formatting | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ steps.lint.outcome }}" == "success" ]]; then
+          echo "| Linting | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Linting | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ steps.test.outcome }}" == "success" ]]; then
+          echo "| Tests | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Tests | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [[ "${{ steps.build.outcome }}" == "success" ]]; then
+          echo "| Build | ✅ Pass |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "| Build | ❌ Fail |" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Fail the workflow if any critical step failed
+        if [[ "${{ steps.format.outcome }}" != "success" ]] || \
+           [[ "${{ steps.lint.outcome }}" != "success" ]] || \
+           [[ "${{ steps.test.outcome }}" != "success" ]] || \
+           [[ "${{ steps.build.outcome }}" != "success" ]]; then
+          echo "❌ One or more checks failed"
+          exit 1
+        fi
+        
+        echo "✅ All checks passed"

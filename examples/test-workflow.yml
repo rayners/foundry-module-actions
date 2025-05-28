@@ -1,0 +1,48 @@
+# Example testing workflow for Foundry VTT modules
+# Place this in .github/workflows/test.yml
+
+name: Test Module
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        uses: rayners/foundry-module-actions/test-action@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+          coverage: true
+
+  # Optional: Test with different Node.js versions
+  test-compatibility:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    strategy:
+      matrix:
+        node-version: [16, 18, 20, 21]
+      fail-fast: false
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test Node.js ${{ matrix.node-version }} compatibility
+        uses: rayners/foundry-module-actions/test-action@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+        continue-on-error: true
