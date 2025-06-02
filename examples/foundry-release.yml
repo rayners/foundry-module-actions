@@ -1,0 +1,30 @@
+# Example workflow for submitting releases to Foundry VTT Package Release API
+# Place this in .github/workflows/foundry-release.yml
+
+name: Submit to Foundry VTT
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  foundry-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        uses: battila7/get-version-action@v2
+
+      - name: Submit to Foundry VTT Package Release API
+        uses: rayners/foundry-module-actions/foundry-release@v1
+        with:
+          package-id: 'your-package-id'
+          release-token: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          version: ${{ steps.get_version.outputs.version-without-v }}
+          manifest-url: 'https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.json'
+          minimum-foundry-version: '11'
+          verified-foundry-version: '12'
+          dry-run: false

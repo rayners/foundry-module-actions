@@ -4,8 +4,9 @@ GitHub Actions for building, testing, and releasing Foundry VTT modules.
 
 ## Actions Included
 
-- **Release Action** (`action.yml`): Build and release modules with automatic zip creation
-- **Testing Action** (`test-action.yml`): Run tests, linting, and build validation
+- **Release Action** (`release/action.yml`): Build and release modules with automatic zip creation
+- **Foundry Release Action** (`foundry-release/action.yml`): Submit releases to Foundry VTT Package Release API
+- **Testing Action** (`test/action.yml`): Run tests, linting, and build validation
 
 ---
 
@@ -169,6 +170,115 @@ Create releases with semantic version tags:
 - ❌ `v1.0.0-alpha`, `1.0.0`, `release-1.0.0`
 
 The action extracts the version number and provides it to your build process.
+
+---
+
+## Foundry Release Action
+
+A GitHub Action that submits release information to the [Foundry VTT Package Release API](https://foundryvtt.com/article/package-release-api/).
+
+### Features
+
+- 🚀 **Direct API Integration** with Foundry VTT package system
+- 🔒 **Secure authentication** using package-specific release tokens
+- ✅ **Validation support** with dry-run option
+- 📊 **Detailed response handling** with proper error reporting
+- 🔄 **Rate limiting aware** with appropriate error handling
+
+### Usage
+
+```yaml
+name: Submit to Foundry VTT
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  foundry-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        uses: battila7/get-version-action@v2
+
+      - name: Submit to Foundry VTT Package Release API
+        uses: rayners/foundry-module-actions/foundry-release@v1
+        with:
+          package-id: 'your-package-id'
+          release-token: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          version: ${{ steps.get_version.outputs.version-without-v }}
+          manifest-url: 'https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.json'
+          minimum-foundry-version: '11'
+          verified-foundry-version: '12'
+```
+
+### Foundry Release Action Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `package-id` | Foundry package identifier | Yes | - |
+| `release-token` | Foundry package release token (fvttp_...) | Yes | - |
+| `version` | Semantic version number (e.g., 1.0.0) | Yes | - |
+| `manifest-url` | URL to the specific release manifest | Yes | - |
+| `minimum-foundry-version` | Minimum supported Foundry version | Yes | - |
+| `verified-foundry-version` | Verified compatible Foundry version | Yes | - |
+| `dry-run` | Validate request without saving changes | No | `false` |
+
+### Foundry Release Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `status` | API response status (success/error/rate-limited) |
+| `page-url` | URL to package edit page on success |
+| `response` | Full API response JSON |
+
+### Setup Requirements
+
+1. **Package Registration**: Your module must be registered on Foundry VTT
+2. **Release Token**: Get your package-specific token from the package edit page
+3. **Secret Storage**: Store the token as `FOUNDRY_RELEASE_TOKEN` in GitHub secrets
+4. **Manifest URL**: Ensure your manifest is publicly accessible after release
+
+### Combined Workflow
+
+Use both actions together for a complete release process:
+
+```yaml
+name: Complete Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and Release Module
+        id: module_release
+        uses: rayners/foundry-module-actions/release@v1
+        with:
+          module-files: 'module.js module.json styles/ templates/ languages/'
+
+      - name: Submit to Foundry VTT Package Release API
+        uses: rayners/foundry-module-actions/foundry-release@v1
+        with:
+          package-id: 'your-package-id'
+          release-token: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          version: ${{ steps.module_release.outputs.version }}
+          manifest-url: 'https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.json'
+          minimum-foundry-version: '11'
+          verified-foundry-version: '12'
+```
 
 ---
 

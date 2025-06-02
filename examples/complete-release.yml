@@ -1,0 +1,38 @@
+# Example complete release workflow
+# Builds module, creates GitHub release, and submits to Foundry VTT
+# Place this in .github/workflows/release.yml
+
+name: Complete Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and Release Module
+        id: module_release
+        uses: rayners/foundry-module-actions/release@v1
+        with:
+          node-version: '18'
+          build-command: 'npm run build'
+          working-directory: 'dist'
+          module-files: 'module.js module.json styles/ templates/ languages/'
+
+      - name: Submit to Foundry VTT Package Release API
+        uses: rayners/foundry-module-actions/foundry-release@v1
+        with:
+          package-id: 'your-package-id'
+          release-token: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          version: ${{ steps.module_release.outputs.version }}
+          manifest-url: 'https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/module.json'
+          minimum-foundry-version: '11'
+          verified-foundry-version: '12'
+          dry-run: false

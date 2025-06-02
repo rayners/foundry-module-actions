@@ -1,0 +1,128 @@
+name: 'Foundry VTT Package Release API'
+description: 'Submit release information to Foundry VTT Package Release API'
+author: 'David Raynes'
+
+inputs:
+  package-id:
+    description: 'Foundry package identifier'
+    required: true
+  
+  release-token:
+    description: 'Foundry package release token (fvttp_...)'
+    required: true
+  
+  version:
+    description: 'Semantic version number (e.g., 1.0.0)'
+    required: true
+  
+  manifest-url:
+    description: 'URL to the specific release manifest'
+    required: true
+  
+  minimum-foundry-version:
+    description: 'Minimum supported Foundry version'
+    required: true
+  
+  verified-foundry-version:
+    description: 'Verified compatible Foundry version'
+    required: true
+  
+  dry-run:
+    description: 'Validate request without saving changes'
+    required: false
+    default: 'false'
+
+outputs:
+  status:
+    description: 'API response status'
+    value: ${{ steps.foundry_release.outputs.status }}
+  
+  page-url:
+    description: 'URL to package edit page on success'
+    value: ${{ steps.foundry_release.outputs.page-url }}
+  
+  response:
+    description: 'Full API response'
+    value: ${{ steps.foundry_release.outputs.response }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Submit to Foundry Package Release API
+      id: foundry_release
+      shell: bash
+      run: |
+        echo "Submitting release to Foundry VTT Package Release API..."
+        
+        # Prepare JSON payload
+        payload=$(cat <<EOF
+        {
+          "id": "${{ inputs.package-id }}",
+          "release": {
+            "version": "${{ inputs.version }}",
+            "manifest": "${{ inputs.manifest-url }}",
+            "compatibility": {
+              "minimum": "${{ inputs.minimum-foundry-version }}",
+              "verified": "${{ inputs.verified-foundry-version }}"
+            }
+          }
+        EOF
+        )
+        
+        # Add dry-run if requested
+        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
+          payload=$(echo "$payload" | jq '. + {"dry-run": true}')
+        fi
+        
+        echo "Payload:"
+        echo "$payload" | jq .
+        
+        # Submit to Foundry API
+        response=$(curl -s -w "HTTPSTATUS:%{http_code}" \
+          -X POST \
+          -H "Content-Type: application/json" \
+          -H "Authorization: ${{ inputs.release-token }}" \
+          -d "$payload" \
+          "https://api.foundryvtt.com/_api/packages/release_version/")
+        
+        # Extract HTTP status and body
+        http_code=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+        response_body=$(echo "$response" | sed -e 's/HTTPSTATUS:.*//g')
+        
+        echo "HTTP Status: $http_code"
+        echo "Response Body: $response_body"
+        
+        # Set outputs
+        echo "response=$response_body" >> $GITHUB_OUTPUT
+        
+        # Handle response based on status code
+        if [[ "$http_code" == "200" ]]; then
+          echo "✅ Release submitted successfully!"
+          status=$(echo "$response_body" | jq -r '.status // "success"')
+          page_url=$(echo "$response_body" | jq -r '.page // ""')
+          
+          echo "status=$status" >> $GITHUB_OUTPUT
+          echo "page-url=$page_url" >> $GITHUB_OUTPUT
+          
+          if [[ -n "$page_url" ]]; then
+            echo "📦 Package page: $page_url"
+          fi
+          
+        elif [[ "$http_code" == "400" ]]; then
+          echo "❌ Bad Request - Validation errors:"
+          echo "$response_body" | jq . || echo "$response_body"
+          echo "status=error" >> $GITHUB_OUTPUT
+          exit 1
+          
+        elif [[ "$http_code" == "429" ]]; then
+          echo "⏳ Rate limited - Too many requests"
+          echo "$response_body" | jq . || echo "$response_body"
+          echo "status=rate-limited" >> $GITHUB_OUTPUT
+          exit 1
+          
+        else
+          echo "❌ Unexpected response (HTTP $http_code):"
+          echo "$response_body" | jq . || echo "$response_body"
+          echo "status=error" >> $GITHUB_OUTPUT
+          exit 1
+        fi
