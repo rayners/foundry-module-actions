@@ -62,6 +62,27 @@ runs:
         GH_TAG: ${{ github.event.release.tag_name }}
       run: ${{ inputs.build-command }}
 
+    - name: Update module.json URLs for release
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [[ -f "module.json" ]]; then
+          echo "Updating module.json URLs for tag ${{ github.event.release.tag_name }}"
+          
+          # Replace latest URLs with tag-specific URLs
+          sed -i.bak \
+            -e "s|releases/latest/download/|releases/download/${{ github.event.release.tag_name }}/|g" \
+            module.json
+          
+          # Remove backup file
+          rm -f module.json.bak
+          
+          echo "Updated module.json URLs:"
+          grep -E "(manifest|download)" module.json || true
+        else
+          echo "No module.json found in ${{ inputs.working-directory }}"
+        fi
+
     - name: Create module zip
       id: create_zip
       shell: bash
