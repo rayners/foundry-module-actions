@@ -51,8 +51,24 @@ runs:
       run: npm ci
 
     - name: Extract version from tag
+      id: extract_version
+      uses: damienaicheh/extract-version-from-tag-action@v1.3.0
+
+    - name: Set version outputs
       id: get_version
-      uses: battila7/get-version-action@v2
+      shell: bash
+      run: |
+        # Combine major.minor.patch to create full version
+        FULL_VERSION="${{ steps.extract_version.outputs.major }}.${{ steps.extract_version.outputs.minor }}.${{ steps.extract_version.outputs.patch }}"
+        
+        # Add pre-release if it exists
+        if [[ "${{ steps.extract_version.outputs.pre-release }}" != "" ]]; then
+          FULL_VERSION="${FULL_VERSION}-${{ steps.extract_version.outputs.pre-release }}"
+        fi
+        
+        echo "version-without-v=$FULL_VERSION" >> $GITHUB_OUTPUT
+        echo "version=v$FULL_VERSION" >> $GITHUB_OUTPUT
+        echo "Version extracted: $FULL_VERSION"
 
     - name: Build module
       shell: bash

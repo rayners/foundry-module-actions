@@ -41,6 +41,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for version tag extraction
 
       - name: Release module
         uses: rayners/foundry-module-actions/release@v1
