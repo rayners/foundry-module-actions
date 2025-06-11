@@ -1,0 +1,96 @@
+name: 'Foundry VTT Module CI'
+description: 'Comprehensive CI steps for Foundry VTT modules with linting, testing, building, and coverage'
+author: 'David Raynes'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '18'
+  
+  github-packages:
+    description: 'Enable GitHub Packages registry authentication'
+    required: false
+    default: 'true'
+  
+  codecov:
+    description: 'Enable Codecov coverage reporting'
+    required: false
+    default: 'true'
+  
+  codecov-slug:
+    description: 'Codecov repository slug (auto-detected if not provided)'
+    required: false
+    default: ''
+  
+  coverage-node-version:
+    description: 'Node.js version to use for coverage reporting'
+    required: false
+    default: '18'
+  
+  codecov-token:
+    description: 'Codecov token for authentication'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+        registry-url: ${{ inputs.github-packages == 'true' && 'https://npm.pkg.github.com' || '' }}
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.github-packages == 'true' && github.token || '' }}
+
+    - name: Run linting
+      shell: bash
+      run: npm run lint
+
+    - name: Check formatting
+      shell: bash
+      run: npm run format:check
+
+    - name: Type checking
+      shell: bash
+      run: npm run typecheck
+
+    - name: Run tests
+      shell: bash
+      run: npm run test:run
+
+    - name: Run build
+      shell: bash
+      run: npm run build
+
+    - name: Generate coverage report
+      if: inputs.node-version == inputs.coverage-node-version
+      shell: bash
+      run: npm run test:coverage
+
+    - name: Determine Codecov slug
+      if: inputs.node-version == inputs.coverage-node-version && inputs.codecov == 'true'
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.codecov-slug }}" ]]; then
+          echo "CODECOV_SLUG=${{ inputs.codecov-slug }}" >> $GITHUB_ENV
+        else
+          echo "CODECOV_SLUG=${{ github.repository }}" >> $GITHUB_ENV
+        fi
+
+    - name: Upload coverage reports to Codecov
+      if: inputs.node-version == inputs.coverage-node-version && inputs.codecov == 'true'
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ inputs.codecov-token || secrets.CODECOV_TOKEN }}
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        slug: ${{ env.CODECOV_SLUG }}
