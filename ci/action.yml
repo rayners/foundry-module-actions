@@ -88,7 +88,7 @@ runs:
       if: inputs.node-version == inputs.coverage-node-version && inputs.codecov == 'true'
       uses: codecov/codecov-action@v5
       with:
-        token: ${{ inputs.codecov-token || secrets.CODECOV_TOKEN }}
+        token: ${{ inputs.codecov-token }}
         file: ./coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
