@@ -79,6 +79,7 @@ runs:
         MODULE_VERSION: ${{ steps.get_version.outputs.version-without-v }}
         GH_PROJECT: ${{ github.repository }}
         GH_TAG: ${{ github.event.release.tag_name }}
+        UPLOAD_SOURCE_MAPS: true
       run: ${{ inputs.build-command }}
 
     - name: Update module.json URLs for release
