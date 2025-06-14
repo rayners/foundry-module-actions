@@ -37,6 +37,11 @@ inputs:
     description: 'Coverage command to run'
     required: false
     default: 'npm run test:coverage'
+  
+  junit-output:
+    description: 'Generate JUnit XML output for codecov'
+    required: false
+    default: 'false'
 
 outputs:
   test-result:
@@ -80,7 +85,13 @@ runs:
       id: test
       shell: bash
       run: |
-        if [[ "${{ inputs.coverage }}" == "true" ]]; then
+        if [[ "${{ inputs.coverage }}" == "true" && "${{ inputs.junit-output }}" == "true" ]]; then
+          # Run tests with both coverage and JUnit output
+          npx vitest run --coverage --reporter=default --reporter=junit --outputFile=test-report.junit.xml
+        elif [[ "${{ inputs.junit-output }}" == "true" ]]; then
+          # Run tests with JUnit output only
+          npx vitest run --reporter=default --reporter=junit --outputFile=test-report.junit.xml
+        elif [[ "${{ inputs.coverage }}" == "true" ]]; then
           ${{ inputs.coverage-command }}
         else
           ${{ inputs.test-command }}
