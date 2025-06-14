@@ -32,6 +32,11 @@ inputs:
     description: 'Codecov token for authentication'
     required: false
     default: ''
+  
+  junit-output:
+    description: 'Generate JUnit XML output for codecov test results'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -63,14 +68,23 @@ runs:
 
     - name: Run tests
       shell: bash
-      run: npm run test:run
+      run: |
+        if [[ "${{ inputs.node-version }}" == "${{ inputs.coverage-node-version }}" && "${{ inputs.junit-output }}" == "true" ]]; then
+          # Run tests with both coverage and JUnit output
+          npm run test:coverage:junit
+        elif [[ "${{ inputs.junit-output }}" == "true" ]]; then
+          # Run tests with JUnit output only
+          npx vitest run --reporter=default --reporter=junit --outputFile=test-report.junit.xml
+        else
+          npm run test:run
+        fi
 
     - name: Run build
       shell: bash
       run: npm run build
 
-    - name: Generate coverage report
-      if: inputs.node-version == inputs.coverage-node-version
+    - name: Generate coverage report (if not already done)
+      if: inputs.node-version == inputs.coverage-node-version && inputs.junit-output != 'true'
       shell: bash
       run: npm run test:coverage
 
@@ -83,6 +97,12 @@ runs:
         else
           echo "CODECOV_SLUG=${{ github.repository }}" >> $GITHUB_ENV
         fi
+
+    - name: Upload test results to Codecov
+      if: inputs.junit-output == 'true' && inputs.codecov-token != ''
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ inputs.codecov-token }}
 
     - name: Upload coverage reports to Codecov
       if: inputs.node-version == inputs.coverage-node-version && inputs.codecov == 'true'
