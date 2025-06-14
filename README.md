@@ -45,7 +45,7 @@ jobs:
           fetch-depth: 0  # Required for version tag extraction
 
       - name: Release module
-        uses: rayners/foundry-module-actions/release@v1
+        uses: rayners/foundry-module-actions/release@v5
         with:
           module-files: 'module.json styles/ templates/ languages/'
 ```
@@ -208,7 +208,7 @@ jobs:
         uses: battila7/get-version-action@v2
 
       - name: Submit to Foundry VTT Package Release API
-        uses: rayners/foundry-module-actions/foundry-release@v1
+        uses: rayners/foundry-module-actions/foundry-release@v5
         with:
           package-id: 'your-package-id'
           release-token: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
@@ -296,6 +296,8 @@ A GitHub Action for running comprehensive tests, linting, and build validation f
 - 📊 **Test coverage** reporting (optional)
 - 📋 **Summary reporting** with pass/fail status
 - 🚫 **Fail-fast behavior** to block bad PRs
+- 📊 **JUnit XML output** for codecov integration
+- ☁️ **Automatic codecov upload** with test results
 
 ### Basic Usage
 
@@ -316,7 +318,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run tests
-        uses: rayners/foundry-module-actions/test@v1
+        uses: rayners/foundry-module-actions/test@v5
 ```
 
 ### Advanced Usage
@@ -338,12 +340,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run comprehensive tests
-        uses: rayners/foundry-module-actions/test@v1
+        uses: rayners/foundry-module-actions/test@v5
         with:
           node-version: '20'
           test-command: 'npm run test:ci'
           lint-command: 'npm run lint:strict'
           coverage: true
+          junit-output: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
 
 ### Testing Action Inputs
@@ -357,6 +362,7 @@ jobs:
 | `format-check-command` | Format check command | No | `npm run format:check` |
 | `coverage` | Generate coverage report | No | `false` |
 | `coverage-command` | Coverage command to run | No | `npm run test:coverage` |
+| `junit-output` | Generate JUnit XML for codecov | No | `false` |
 
 ### Testing Action Outputs
 
@@ -375,12 +381,38 @@ Your module should have these npm scripts (or customize the commands):
   "scripts": {
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage", 
+    "test:junit": "vitest run --reporter=default --reporter=junit --outputFile=test-report.junit.xml",
+    "test:coverage:junit": "vitest run --coverage --reporter=default --reporter=junit --outputFile=test-report.junit.xml",
     "lint": "eslint src",
     "format:check": "prettier --check \"src/**/*.{ts,js}\"",
     "build": "rollup -c"
   }
 }
 ```
+
+### Codecov Integration
+
+To enable codecov integration with test results:
+
+1. **Setup codecov**: Add your repository to [codecov.io](https://codecov.io)
+2. **Add token**: Store your `CODECOV_TOKEN` in GitHub repository secrets
+3. **Enable JUnit output**: Set `junit-output: true` in the action
+4. **Optional coverage**: Combine with `coverage: true` for full reports
+
+```yaml
+- name: Run tests with codecov
+  uses: rayners/foundry-module-actions/test@v5
+  with:
+    coverage: true
+    junit-output: true
+  env:
+    CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+```
+
+This will:
+- Generate `test-report.junit.xml` with test results
+- Upload test results to codecov automatically
+- Combine with coverage data if `coverage: true`
 
 ## License
 
