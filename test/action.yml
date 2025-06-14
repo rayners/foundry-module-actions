@@ -104,6 +104,12 @@ runs:
       run: ${{ inputs.build-command }}
       continue-on-error: true
 
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() && inputs.junit-output == 'true' }}
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
     - name: Report results
       shell: bash
       run: |
