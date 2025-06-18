@@ -3,6 +3,10 @@ description: 'Build and release Foundry VTT modules with automatic zip creation 
 author: 'David Raynes'
 
 inputs:
+  tag:
+    description: 'Tag name (optional - defaults to release event tag or latest git tag)'
+    required: false
+  
   node-version:
     description: 'Node.js version to use'
     required: false
@@ -53,32 +57,50 @@ runs:
         NODE_AUTH_TOKEN: ${{ github.token }}
       run: npm ci
 
-    - name: Extract version from tag
-      id: extract_version
-      uses: damienaicheh/extract-version-from-tag-action@v1.3.0
+    - name: Determine tag
+      id: get_tag
+      shell: bash
+      run: |
+        # Use provided tag, fall back to release event, then git describe
+        if [ -n "${{ inputs.tag }}" ]; then
+          TAG="${{ inputs.tag }}"
+          echo "📦 Using provided tag: $TAG"
+        elif [ -n "${{ github.event.release.tag_name }}" ]; then
+          TAG="${{ github.event.release.tag_name }}"
+          echo "📦 Using release event tag: $TAG"
+        else
+          # Try to get the latest tag from git
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$TAG" ]; then
+            echo "📦 Using git tag: $TAG"
+          fi
+        fi
+        
+        if [ -z "$TAG" ]; then
+          echo "❌ Error: No tag found! Please provide tag input or run in release context"
+          exit 1
+        fi
+        
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-    - name: Set version outputs
+    - name: Extract version from tag
       id: get_version
       shell: bash
       run: |
-        # Combine major.minor.patch to create full version
-        FULL_VERSION="${{ steps.extract_version.outputs.major }}.${{ steps.extract_version.outputs.minor }}.${{ steps.extract_version.outputs.patch }}"
+        TAG="${{ steps.get_tag.outputs.tag }}"
+        # Remove 'v' prefix if present
+        VERSION="${TAG#v}"
         
-        # Add pre-release if it exists
-        if [[ "${{ steps.extract_version.outputs.pre-release }}" != "" ]]; then
-          FULL_VERSION="${FULL_VERSION}-${{ steps.extract_version.outputs.pre-release }}"
-        fi
-        
-        echo "version-without-v=$FULL_VERSION" >> $GITHUB_OUTPUT
-        echo "version=v$FULL_VERSION" >> $GITHUB_OUTPUT
-        echo "Version extracted: $FULL_VERSION"
+        echo "version-without-v=$VERSION" >> $GITHUB_OUTPUT
+        echo "version=v$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 Version extracted: $VERSION"
 
     - name: Build module
       shell: bash
       env:
         MODULE_VERSION: ${{ steps.get_version.outputs.version-without-v }}
         GH_PROJECT: ${{ github.repository }}
-        GH_TAG: ${{ github.event.release.tag_name }}
+        GH_TAG: ${{ steps.get_tag.outputs.tag }}
         UPLOAD_SOURCE_MAPS: true
       run: ${{ inputs.build-command }}
 
@@ -86,12 +108,13 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        TAG="${{ steps.get_tag.outputs.tag }}"
         if [[ -f "module.json" ]]; then
-          echo "Updating module.json URLs for tag ${{ github.event.release.tag_name }}"
+          echo "📦 Updating module.json URLs for tag $TAG"
           
           # Replace latest URLs with tag-specific URLs
           sed -i.bak \
-            -e "s|releases/latest/download/|releases/download/${{ github.event.release.tag_name }}/|g" \
+            -e "s|releases/latest/download/|releases/download/$TAG/|g" \
             module.json
           
           # Remove backup file
@@ -100,7 +123,7 @@ runs:
           echo "Updated module.json URLs:"
           grep -E "(manifest|download)" module.json || true
         else
-          echo "No module.json found in ${{ inputs.working-directory }}"
+          echo "⚠️ No module.json found in ${{ inputs.working-directory }}"
         fi
 
     - name: Create module zip
@@ -125,7 +148,44 @@ runs:
         
         echo "zip-path=${{ inputs.working-directory }}/${{ inputs.zip-name }}" >> $GITHUB_OUTPUT
 
-    - name: Update release with artifacts
+    - name: Upload Release Assets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        TAG="${{ steps.get_tag.outputs.tag }}"
+        
+        # Check if this is a release event or if we need to upload manually
+        if [ "${{ github.event_name }}" = "release" ]; then
+          echo "📦 Running in release event context - using ncipollo/release-action"
+          # For backward compatibility, we'll create a separate step for this
+        else
+          echo "📦 Running in non-release context - checking if release exists"
+          
+          # Check if release exists
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "✅ Release $TAG found - uploading assets"
+            
+            # Upload the assets
+            gh release upload "$TAG" \
+              "${{ inputs.working-directory }}/module.json" \
+              "${{ steps.create_zip.outputs.zip-path }}" \
+              --clobber
+              
+            echo "✅ Assets uploaded successfully"
+          else
+            echo "⚠️ Release $TAG not found"
+            echo "📁 Assets created at:"
+            echo "   - ${{ inputs.working-directory }}/module.json"
+            echo "   - ${{ steps.create_zip.outputs.zip-path }}"
+            echo ""
+            echo "ℹ️ To upload manually, create a release for tag $TAG"
+          fi
+        fi
+
+    # For backward compatibility with release events
+    - name: Update release with artifacts (release event)
+      if: github.event_name == 'release'
       uses: ncipollo/release-action@v1
       with:
         allowUpdates: true
@@ -134,5 +194,5 @@ runs:
         prerelease: ${{ github.event.release.prerelease }}
         token: ${{ github.token }}
         artifacts: "${{ inputs.working-directory }}/module.json, ${{ steps.create_zip.outputs.zip-path }}"
-        tag: ${{ github.event.release.tag_name }}
+        tag: ${{ steps.get_tag.outputs.tag }}
         body: ${{ github.event.release.body }}
