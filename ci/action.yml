@@ -37,6 +37,11 @@ inputs:
     description: 'Generate JUnit XML output for codecov test results'
     required: false
     default: 'false'
+  
+  test-command:
+    description: 'Custom test command to run instead of default test commands'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -69,7 +74,10 @@ runs:
     - name: Run tests
       shell: bash
       run: |
-        if [[ "${{ inputs.node-version }}" == "${{ inputs.coverage-node-version }}" && "${{ inputs.junit-output }}" == "true" ]]; then
+        if [[ -n "${{ inputs.test-command }}" ]]; then
+          # Use custom test command when provided
+          ${{ inputs.test-command }}
+        elif [[ "${{ inputs.node-version }}" == "${{ inputs.coverage-node-version }}" && "${{ inputs.junit-output }}" == "true" ]]; then
           # Run tests with both coverage and JUnit output
           npm run test:coverage:junit
         elif [[ "${{ inputs.junit-output }}" == "true" ]]; then
