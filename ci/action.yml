@@ -117,7 +117,7 @@ runs:
       uses: codecov/codecov-action@v5
       with:
         token: ${{ inputs.codecov-token }}
-        file: ./coverage/lcov.info
+        files: ./coverage/lcov.info
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
