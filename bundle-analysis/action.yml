@@ -8,11 +8,6 @@ inputs:
     required: false
     default: '18'
   
-  github-packages:
-    description: 'Enable GitHub Packages registry authentication'
-    required: false
-    default: 'false'
-  
   pattern:
     description: 'Glob pattern for files to analyze'
     required: false
@@ -56,13 +51,10 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'npm'
-        registry-url: ${{ inputs.github-packages == 'true' && 'https://npm.pkg.github.com' || '' }}
 
     - name: Install dependencies
       shell: bash
       run: npm ci
-      env:
-        NODE_AUTH_TOKEN: ${{ inputs.github-packages == 'true' && github.token || '' }}
 
     - name: Build module
       shell: bash
