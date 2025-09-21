@@ -6,11 +6,16 @@ inputs:
   tag:
     description: 'Tag name (optional - defaults to release event tag or latest git tag)'
     required: false
-  
+
   node-version:
     description: 'Node.js version to use'
     required: false
     default: '18'
+
+  github-packages:
+    description: '(Deprecated) Previously toggled GitHub Packages authentication. No longer used.'
+    required: false
+    default: 'false'
   
   build-command:
     description: 'Build command to run'
@@ -49,12 +54,9 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'npm'
-        registry-url: 'https://npm.pkg.github.com'
 
     - name: Install dependencies
       shell: bash
-      env:
-        NODE_AUTH_TOKEN: ${{ github.token }}
       run: npm ci
 
     - name: Determine tag
