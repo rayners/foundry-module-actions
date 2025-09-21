@@ -6,11 +6,16 @@ inputs:
   tag:
     description: 'Tag name (optional - defaults to release event tag or latest git tag)'
     required: false
-  
+
   node-version:
     description: 'Node.js version to use'
     required: false
     default: '18'
+
+  github-packages:
+    description: '(Deprecated) Previously toggled GitHub Packages authentication. No longer used.'
+    required: false
+    default: 'false'
   
   build-command:
     description: 'Build command to run'
