@@ -55,24 +55,24 @@ runs:
         echo "Submitting release to Foundry VTT Package Release API..."
         
         # Prepare JSON payload
-        payload=$(cat <<EOF
-        {
-          "id": "${{ inputs.package-id }}",
-          "release": {
-            "version": "${{ inputs.version }}",
-            "manifest": "${{ inputs.manifest-url }}",
-            "compatibility": {
-              "minimum": "${{ inputs.minimum-foundry-version }}",
-              "verified": "${{ inputs.verified-foundry-version }}"
+        payload=$(jq -n \
+          --arg id "${{ inputs.package-id }}" \
+          --arg version "${{ inputs.version }}" \
+          --arg manifest "${{ inputs.manifest-url }}" \
+          --arg minimum "${{ inputs.minimum-foundry-version }}" \
+          --arg verified "${{ inputs.verified-foundry-version }}" \
+          --argjson dryrun "${{ inputs.dry-run == 'true' && 'true' || 'false' }}" \
+          '{
+            id: $id,
+            release: {
+              version: $version,
+              manifest: $manifest,
+              compatibility: {
+                minimum: $minimum,
+                verified: $verified
+              }
             }
-          }
-        EOF
-        )
-        
-        # Add dry-run if requested
-        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
-          payload=$(echo "$payload" | jq '. + {"dry-run": true}')
-        fi
+          } + (if $dryrun then {"dry-run": true} else {} end)')
         
         echo "Payload:"
         echo "$payload" | jq .
