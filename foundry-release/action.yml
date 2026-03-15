@@ -27,6 +27,11 @@ inputs:
     description: 'Verified compatible Foundry version'
     required: true
   
+  notes-url:
+    description: 'URL to release notes (e.g., GitHub release page)'
+    required: false
+    default: ''
+
   dry-run:
     description: 'Validate request without saving changes'
     required: false
@@ -61,18 +66,21 @@ runs:
           --arg manifest "${{ inputs.manifest-url }}" \
           --arg minimum "${{ inputs.minimum-foundry-version }}" \
           --arg verified "${{ inputs.verified-foundry-version }}" \
+          --arg notes "${{ inputs.notes-url }}" \
           --argjson dryrun "${{ inputs.dry-run == 'true' && 'true' || 'false' }}" \
           '{
             id: $id,
             release: {
               version: $version,
               manifest: $manifest,
+              notes: $notes,
               compatibility: {
                 minimum: $minimum,
                 verified: $verified
               }
             }
-          } + (if $dryrun then {"dry-run": true} else {} end)')
+          } + (if $dryrun then {"dry-run": true} else {} end)
+            | if .release.notes == "" then del(.release.notes) else . end')
         
         echo "Payload:"
         echo "$payload" | jq .
